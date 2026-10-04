@@ -1,0 +1,1060 @@
+<!DOCTYPE html>
+<html lang="vi">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Apollo Mission Modes Simulator</title>
+  <!-- Tailwind CSS -->
+  <script src="https://cdn.tailwindcss.com"></script>
+  <!-- FontAwesome Icons -->
+  <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css">
+  <style>
+    @import url('https://fonts.googleapis.com/css2?family=Orbitron:wght@400;600;800;900&family=Inter:wght@300;400;500;600;700&display=swap');
+    
+    body {
+      font-family: 'Inter', sans-serif;
+      background-color: #050811;
+      color: #e2e8f0;
+      overflow: hidden;
+    }
+    
+    .font-orbitron {
+      font-family: 'Orbitron', sans-serif;
+    }
+
+    /* Custom Glassmorphism Styling */
+    .glass-panel {
+      background: rgba(13, 20, 38, 0.85);
+      backdrop-filter: blur(12px);
+      border: 1px solid rgba(255, 255, 255, 0.12);
+      box-shadow: 0 8px 32px 0 rgba(0, 0, 0, 0.4);
+    }
+    
+    .glass-button {
+      background: rgba(255, 255, 255, 0.08);
+      border: 1px solid rgba(255, 255, 255, 0.18);
+      transition: all 0.2s ease;
+    }
+    
+    .glass-button:hover:not(:disabled) {
+      background: rgba(255, 255, 255, 0.2);
+      border-color: rgba(255, 255, 255, 0.4);
+      transform: translateY(-1px);
+    }
+
+    .glass-button.active {
+      background: linear-gradient(135deg, rgba(59, 130, 246, 0.6), rgba(147, 51, 234, 0.6));
+      border-color: rgba(147, 197, 253, 0.6);
+      box-shadow: 0 0 15px rgba(59, 130, 246, 0.4);
+    }
+
+    /* Scrollbar */
+    ::-webkit-scrollbar {
+      width: 6px;
+      height: 6px;
+    }
+    ::-webkit-scrollbar-track {
+      background: rgba(15, 23, 42, 0.6);
+    }
+    ::-webkit-scrollbar-thumb {
+      background: rgba(100, 116, 139, 0.5);
+      border-radius: 3px;
+    }
+  </style>
+</head>
+<body class="h-screen w-screen relative select-none bg-slate-950 text-slate-100 flex flex-col justify-between overflow-hidden">
+
+  <!-- CANVAS BACKGROUND -->
+  <div class="absolute inset-0 z-0">
+    <canvas id="spaceCanvas" class="w-full h-full block cursor-grab active:cursor-grabbing"></canvas>
+  </div>
+
+  <!-- TOP OVERLAY / HEADER -->
+  <header class="relative z-10 p-4 flex justify-between items-start pointer-events-none">
+    <div class="flex items-start space-x-2 pointer-events-auto">
+      <div id="header-card" class="bg-slate-900/80 backdrop-blur-md p-4 rounded-xl border border-slate-700/60 shadow-xl max-w-md transition-all duration-300">
+        <div class="flex items-center space-x-3 mb-1">
+          <i class="fa-solid font-bold text-cyan-400 text-xl fa-shuttle-space"></i>
+          <h1 class="font-orbitron text-xl font-bold tracking-wider text-transparent bg-clip-text bg-gradient-to-r from-cyan-400 via-sky-300 to-indigo-400">
+            APOLLO MODES VISUALIZER
+          </h1>
+        </div>
+        <p class="text-xs text-slate-300 leading-relaxed">
+          Mô phỏng 2D tương tác 4 phương án đưa con người lên Mặt Trăng (Direct Ascent, EOR, LSR & LOR) theo dự án Apollo.
+        </p>
+      </div>
+      <button onclick="toggleHeaderCard()" class="glass-button p-2 rounded-xl text-slate-300 hover:text-white" title="Ẩn/Hiện Tiêu Đề">
+        <i id="toggle-header-icon" class="fa-solid fa-eye-slash text-xs"></i>
+      </button>
+    </div>
+
+    <!-- Mode Select Tabs Top Right -->
+    <div class="pointer-events-auto flex flex-wrap gap-2 glass-panel p-1.5 rounded-xl">
+      <button id="btn-da" onclick="selectMode('da')" class="glass-button px-3 py-1.5 rounded-lg text-xs font-semibold flex items-center space-x-2">
+        <span class="w-2 h-2 rounded-full bg-rose-500"></span>
+        <span>1. Direct Ascent (DA)</span>
+      </button>
+      <button id="btn-eor" onclick="selectMode('eor')" class="glass-button px-3 py-1.5 rounded-lg text-xs font-semibold flex items-center space-x-2">
+        <span class="w-2 h-2 rounded-full bg-amber-500"></span>
+        <span>2. Earth Orbit (EOR)</span>
+      </button>
+      <button id="btn-lsr" onclick="selectMode('lsr')" class="glass-button px-3 py-1.5 rounded-lg text-xs font-semibold flex items-center space-x-2">
+        <span class="w-2 h-2 rounded-full bg-emerald-500"></span>
+        <span>3. Lunar Surface (LSR)</span>
+      </button>
+      <button id="btn-lor" onclick="selectMode('lor')" class="glass-button active px-3 py-1.5 rounded-lg text-xs font-semibold flex items-center space-x-2">
+        <span class="w-2 h-2 rounded-full bg-cyan-400"></span>
+        <span>4. Lunar Orbit (LOR)</span>
+      </button>
+    </div>
+  </header>
+
+  <!-- RIGHT SIDE INFO CONTAINER -->
+  <div class="absolute right-4 top-20 z-10 w-80 pointer-events-auto flex flex-col items-end gap-2">
+    <!-- Toggle Button to Minimize/Expand All Info Panels -->
+    <button onclick="toggleSidePanel()" class="glass-button px-3 py-1.5 rounded-xl text-xs font-semibold flex items-center space-x-2 text-cyan-300 border border-cyan-500/40 shadow-lg">
+      <i id="toggle-side-icon" class="fa-solid fa-compress"></i>
+      <span id="toggle-side-text">Thu Nhỏ Khay Thông Tin</span>
+    </button>
+
+    <div id="side-panel-content" class="w-full flex flex-col gap-3 transition-all duration-300">
+      <!-- Mission Progress Status -->
+      <div class="glass-panel rounded-xl p-4 border border-cyan-500/30">
+        <div class="flex items-center justify-between mb-2 border-b border-slate-700/60 pb-2">
+          <span class="text-xs font-orbitron font-semibold text-cyan-400 tracking-wider">TIẾN TRÌNH NHIỆM VỤ</span>
+          <span id="step-badge" class="px-2 py-0.5 text-[10px] font-bold rounded bg-cyan-500/20 text-cyan-300 border border-cyan-500/40">Giai đoạn 1/5</span>
+        </div>
+        <h2 id="step-title" class="text-sm font-bold text-white mb-1">Cất cánh từ Trái Đất</h2>
+        <p id="step-desc" class="text-xs text-slate-300 leading-relaxed min-h-[48px]">
+          Tên lửa chuẩn bị phóng từ Bệ phóng Kennedy.
+        </p>
+        
+        <!-- Progress Bar -->
+        <div class="w-full bg-slate-800 h-1.5 rounded-full mt-3 overflow-hidden">
+          <div id="progress-bar" class="bg-gradient-to-r from-cyan-500 to-indigo-500 h-full w-0 transition-all duration-300"></div>
+        </div>
+      </div>
+
+      <!-- Info Box -->
+      <div class="glass-panel rounded-xl p-4">
+        <div class="flex items-center justify-between mb-2 border-b border-slate-700/60 pb-2">
+          <span class="text-xs font-orbitron font-semibold text-purple-400 tracking-wider">MÔ TẢ CẤU TRÚC TÀU</span>
+        </div>
+        <div class="text-xs space-y-2 text-slate-300">
+          <div id="hardware-spec">
+            <!-- Populated by JS -->
+          </div>
+        </div>
+      </div>
+    </div>
+  </div>
+
+  <!-- BOTTOM TOOLBAR -->
+  <footer class="relative z-10 p-4 flex justify-center items-center pointer-events-none">
+    <div class="pointer-events-auto glass-panel px-6 py-3 rounded-2xl flex items-center space-x-5 shadow-2xl border border-slate-700/80 flex-wrap justify-center gap-y-2">
+      
+      <!-- Play / Pause -->
+      <button id="btn-play" onclick="togglePlay()" class="w-10 h-10 rounded-full bg-cyan-500 hover:bg-cyan-400 text-slate-950 font-bold flex items-center justify-center transition shadow-lg shadow-cyan-500/30">
+        <i id="play-icon" class="fa-solid fa-pause text-sm"></i>
+      </button>
+
+      <!-- Replay -->
+      <button onclick="resetSimulation()" class="w-9 h-9 rounded-full glass-button text-slate-300 hover:text-white flex items-center justify-center" title="Bắt đầu lại">
+        <i class="fa-solid fa-rotate-left text-sm"></i>
+      </button>
+
+      <!-- Step Navigation -->
+      <div class="flex items-center space-x-1 border-l border-r border-slate-700/80 px-3">
+        <button onclick="prevStep()" class="px-2.5 py-1 rounded glass-button text-xs text-slate-300 hover:text-white flex items-center space-x-1">
+          <i class="fa-solid fa-backward-step"></i>
+          <span class="hidden sm:inline">Lùi</span>
+        </button>
+        <button onclick="nextStep()" class="px-2.5 py-1 rounded glass-button text-xs text-slate-300 hover:text-white flex items-center space-x-1">
+          <span class="hidden sm:inline">Tiếp</span>
+          <i class="fa-solid fa-forward-step"></i>
+        </button>
+      </div>
+
+      <!-- Speed Control -->
+      <div class="flex items-center space-x-1">
+        <span class="text-[11px] font-semibold text-slate-400 uppercase tracking-wider me-1">Tốc độ:</span>
+        <button id="speed-05" onclick="setSpeed(0.5)" class="px-2 py-0.5 rounded text-xs glass-button">0.5x</button>
+        <button id="speed-10" onclick="setSpeed(1.0)" class="px-2 py-0.5 rounded text-xs glass-button active">1.0x</button>
+        <button id="speed-20" onclick="setSpeed(2.0)" class="px-2 py-0.5 rounded text-xs glass-button">2.0x</button>
+      </div>
+
+      <!-- Camera Zoom / Reset & LOCK SCREEN BUTTON -->
+      <div class="flex items-center space-x-2 border-l border-slate-700/80 pl-3">
+        <button id="btn-lock" onclick="toggleScreenLock()" class="px-3 py-1 rounded-lg text-xs font-semibold flex items-center space-x-1.5 transition border border-rose-500/40 bg-rose-500/10 text-rose-300">
+          <i id="lock-icon" class="fa-solid fa-lock-open"></i>
+          <span id="lock-text">Màn Hình: Mở</span>
+        </button>
+
+        <button onclick="resetCamera()" class="px-2.5 py-1 rounded glass-button text-xs text-slate-300 hover:text-white" title="Đặt lại góc nhìn">
+          <i class="fa-solid fa-compress me-1"></i>Reset Cam
+        </button>
+      </div>
+    </div>
+  </footer>
+
+  <script>
+    /* =========================================================================
+       GLOBAL CONSTANTS & STATE
+       ========================================================================= */
+    const canvas = document.getElementById('spaceCanvas');
+    const ctx = canvas.getContext('2d');
+
+    let isPlaying = true;
+    let simSpeed = 1.0;
+    let currentMode = 'lor'; 
+    let currentStepIndex = 0;
+    let stepProgress = 0; 
+    let isScreenLocked = false;
+
+    // Camera view offset and zoom
+    let camera = { x: 0, y: 0, zoom: 1, targetX: 0, targetY: 0, targetZoom: 1 };
+
+    // Stars background
+    const stars = [];
+    for (let i = 0; i < 250; i++) {
+      stars.push({
+        x: (Math.random() - 0.5) * 3200,
+        y: (Math.random() - 0.5) * 3200,
+        size: Math.random() * 1.8 + 0.5,
+        alpha: Math.random() * 0.8 + 0.2
+      });
+    }
+
+    // Celestial Bodies Positions
+    const EARTH = { x: -380, y: 0, r: 90 };
+    const MOON = { x: 380, y: 0, r: 45 };
+
+    /* =========================================================================
+       MISSION MODES DEFINITIONS & STEPS
+       ========================================================================= */
+    const MISSION_MODES = {
+      da: {
+        title: "Direct Ascent (Phóng Trực Tiếp)",
+        hardwareName: "Siêu Tên Lửa Nova Khổng Lồ",
+        hardwareDesc: "Mô hình tên lửa đạn đạo Siêu Nặng Nova mang trực tiếp toàn bộ khối tàu đáp xuống và cất cánh từ Mặt Trăng.",
+        steps: [
+          { title: "1. Cất cánh với Siêu tên lửa Nova", desc: "Tên lửa Nova khổng lồ rời bệ phóng tại Trái Đất.", duration: 500 },
+          { title: "2. Bay lên Quỹ đạo & TLI", desc: "Đốt động cơ đẩy TLI tiến thẳng tới Mặt Trăng.", duration: 700 },
+          { title: "3. Hạ cánh Trực tiếp", desc: "Mũi tàu hướng về phía Mặt Trăng tiến hành đổ bộ toàn bộ con tàu.", duration: 600 },
+          { title: "4. Cất cánh toàn bộ tàu", desc: "Sau khi hoàn tất, con tàu cất cánh, mũi quay về Trái Đất.", duration: 600 },
+          { title: "5. Trở về & Tách vỏ", desc: "Khoang mũi tách rời vỏ thân tàu nặng nề đi vào khí quyển Trái Đất.", duration: 700 }
+        ]
+      },
+      eor: {
+        title: "Earth Orbit Rendezvous (Ghép Nối Quỹ Đạo Trái Đất)",
+        hardwareName: "Tàu Nhiên Liệu Tanker & Tàu Chỉ Huy",
+        hardwareDesc: "Tàu Tanker nạp nhiên liệu phóng trước. Tàu phi hành đoàn đến ghép nối nạp năng lượng trên quỹ đạo Trái Đất.",
+        steps: [
+          { title: "1. Phóng Tàu Nhiên Liệu (Tanker)", desc: "Mô-đun nhiên liệu hạng nặng được phóng lên quỹ đạo Trái Đất.", duration: 700 },
+          { title: "2. Phóng Tàu Crew & Ghép Nối", desc: "Tàu chở người phóng lên, tính toán đón đầu để ghép nối với bồn nhiên liệu.", duration: 800 },
+          { title: "3. Khởi hành đến Mặt Trăng", desc: "Tàu hoàn chỉnh sau khi ghép nối kích hoạt động cơ bay tới Mặt Trăng.", duration: 600 },
+          { title: "4. Hạ cánh & Cất cánh", desc: "Tàu hạ cánh nguyên khối và cất cánh trở về Trái Đất.", duration: 800 },
+          { title: "5. Trở về Trái Đất", desc: "Khoang chỉ huy trở về Trái Đất an toàn.", duration: 500 }
+        ]
+      },
+      lsr: {
+        title: "Lunar Surface Rendezvous (Ghép Nối Bề Mặt)",
+        hardwareName: "Tàu Hàng Cargo + Tàu Đổ Bộ Crew",
+        hardwareDesc: "Tàu chở nhiên liệu đáp trước. Tàu người đáp sát bên, nạp nhiên liệu và dùng chính tàu đó bay thẳng về Trái Đất.",
+        steps: [
+          { title: "1. Tàu Cargo đáp trước", desc: "Tàu hàng chứa trạm nhiên liệu đáp xuống bề mặt Mặt Trăng.", duration: 700 },
+          { title: "2. Tàu Phi hành đoàn hạ cánh", desc: "Tàu chở người bay đến và hạ cánh chính xác sát bên tàu Cargo.", duration: 700 },
+          { title: "3. Bơm Nhiên Liệu Bề Mặt", desc: "Nhiên liệu được bơm truyền từ Tàu Cargo sang Tàu chở người.", duration: 800 },
+          { title: "4. Tàu Chở Người Cất cánh", desc: "Tàu Crew mang theo phi hành đoàn cất cánh, hướng thẳng về đường bay Trái Đất.", duration: 600 },
+          { title: "5. Bay Thẳng Về Trái Đất", desc: "Di chuyển thẳng theo đường đạn đạo về đến Trái Đất an toàn.", duration: 600 }
+        ]
+      },
+      lor: {
+        title: "Lunar Orbit Rendezvous (Ghép Nối Quỹ Đạo Mặt Trăng)",
+        hardwareName: "Tàu Mẹ CSM + Tàu Đổ Bộ LM (2 Tầng)",
+        hardwareDesc: "Tàu Mẹ CSM bay vòng quanh quỹ đạo. Tàu LM đáp xuống, cất cánh ghép nối lại với Tàu Mẹ; sau khi chuyển phi hành đoàn, LM tách ra ngay trên quỹ đạo Mặt Trăng trước khi CSM khởi hành về Trái Đất.",
+        steps: [
+          { title: "1. Phóng Tên lửa Saturn V", desc: "Tên lửa Saturn V mang Tàu Mẹ CSM và Tàu LM cất cánh.", duration: 600 },
+          { title: "2. Bay Đến Quỹ Đạo & LM Hạ Cánh", desc: "Tàu Mẹ CSM duy trì quỹ đạo Mặt Trăng, Tàu LM tách ra và hạ cánh xuống bề mặt.", duration: 800 },
+          { title: "3. Cất Cánh & Ghép Nối Quỹ Đạo", desc: "Tầng cất cánh của LM bay lên quỹ đạo và ghép nối với Tàu Mẹ CSM. Hai tàu vẫn kết nối với nhau sau khi ghép nối.", duration: 800 },
+          { title: "4. Định Vị TEI & Tách LM Trên Quỹ Đạo", desc: "CSM + LM di chuyển vào vị trí chuẩn bị khởi hành. Khi vẫn còn trên quỹ đạo Mặt Trăng, LM tách khỏi CSM; sau đó CSM mới đốt động cơ thoát quỹ đạo để về Trái Đất.", duration: 900 },
+          { title: "5. CSM Trở Về Trái Đất & Đáp Dù", desc: "Chỉ Tàu Mẹ CSM tiếp tục hành trình về Trái Đất, đi vào pha cuối và triển khai dù hạ cánh an toàn.", duration: 600 }
+        ]
+      }
+    };
+
+    /* =========================================================================
+       INITIALIZATION & UI LOGIC
+       ========================================================================= */
+    function init() {
+      resizeCanvas();
+      window.addEventListener('resize', resizeCanvas);
+      setupCanvasInteractions();
+      selectMode('lor');
+      requestAnimationFrame(gameLoop);
+    }
+
+    function resizeCanvas() {
+      canvas.width = window.innerWidth;
+      canvas.height = window.innerHeight;
+    }
+
+    function selectMode(modeKey) {
+      currentMode = modeKey;
+      currentStepIndex = 0;
+      stepProgress = 0;
+
+      ['da', 'eor', 'lsr', 'lor'].forEach(m => {
+        const btn = document.getElementById(`btn-${m}`);
+        if (m === modeKey) btn.classList.add('active');
+        else btn.classList.remove('active');
+      });
+
+      const modeData = MISSION_MODES[modeKey];
+      document.getElementById('hardware-spec').innerHTML = `
+        <div class="font-bold text-cyan-300 text-sm mb-1">${modeData.hardwareName}</div>
+        <p class="text-[11px] leading-snug text-slate-300">${modeData.hardwareDesc}</p>
+      `;
+
+      updateStepUI();
+      resetCamera();
+    }
+
+    function updateStepUI() {
+      const modeData = MISSION_MODES[currentMode];
+      const step = modeData.steps[currentStepIndex];
+
+      document.getElementById('step-badge').innerText = `Giai đoạn ${currentStepIndex + 1}/${modeData.steps.length}`;
+      document.getElementById('step-title').innerText = step.title;
+      document.getElementById('step-desc').innerText = step.desc;
+
+      const totalSteps = modeData.steps.length;
+      const progressPercent = ((currentStepIndex + stepProgress) / totalSteps) * 100;
+      document.getElementById('progress-bar').style.width = `${progressPercent}%`;
+    }
+
+    function togglePlay() {
+      isPlaying = !isPlaying;
+      document.getElementById('play-icon').className = isPlaying ? "fa-solid fa-pause text-sm" : "fa-solid fa-play text-sm";
+    }
+
+    function setSpeed(spd) {
+      simSpeed = spd;
+      ['05', '10', '20'].forEach(s => document.getElementById(`speed-${s}`).classList.remove('active'));
+      document.getElementById(`speed-${spd.toString().replace('.', '')}`).classList.add('active');
+    }
+
+    function resetSimulation() {
+      currentStepIndex = 0; stepProgress = 0; isPlaying = true;
+      document.getElementById('play-icon').className = "fa-solid fa-pause text-sm";
+      updateStepUI(); resetCamera();
+    }
+
+    function nextStep() {
+      const max = MISSION_MODES[currentMode].steps.length - 1;
+      if (currentStepIndex < max) { currentStepIndex++; stepProgress = 0; } 
+      else stepProgress = 1;
+      updateStepUI();
+    }
+
+    function prevStep() {
+      if (currentStepIndex > 0) { currentStepIndex--; stepProgress = 0; } 
+      else stepProgress = 0;
+      updateStepUI();
+    }
+
+    function resetCamera() { camera.targetX = 0; camera.targetY = 0; camera.targetZoom = 1; }
+
+    function toggleSidePanel() {
+      const panel = document.getElementById('side-panel-content');
+      const icon = document.getElementById('toggle-side-icon');
+      const text = document.getElementById('toggle-side-text');
+      if (panel.classList.contains('hidden')) {
+        panel.classList.remove('hidden');
+        icon.className = "fa-solid fa-compress";
+        text.innerText = "Thu Nhỏ Khay Thông Tin";
+      } else {
+        panel.classList.add('hidden');
+        icon.className = "fa-solid fa-expand";
+        text.innerText = "Mở Khay Thông Tin";
+      }
+    }
+
+    function toggleHeaderCard() {
+      const card = document.getElementById('header-card');
+      const icon = document.getElementById('toggle-header-icon');
+      if (card.classList.contains('hidden')) {
+        card.classList.remove('hidden');
+        icon.className = "fa-solid fa-eye-slash text-xs";
+      } else {
+        card.classList.add('hidden');
+        icon.className = "fa-solid fa-eye text-xs";
+      }
+    }
+
+    function toggleScreenLock() {
+      isScreenLocked = !isScreenLocked;
+      const btn = document.getElementById('btn-lock');
+      const icon = document.getElementById('lock-icon');
+      const text = document.getElementById('lock-text');
+
+      if (isScreenLocked) {
+        btn.className = "px-3 py-1 rounded-lg text-xs font-semibold flex items-center space-x-1.5 transition border border-emerald-500/50 bg-emerald-500/20 text-emerald-300 shadow-lg shadow-emerald-500/20";
+        icon.className = "fa-solid fa-lock";
+        text.innerText = "Màn Hình: Khóa";
+        canvas.style.cursor = "not-allowed";
+      } else {
+        btn.className = "px-3 py-1 rounded-lg text-xs font-semibold flex items-center space-x-1.5 transition border border-rose-500/40 bg-rose-500/10 text-rose-300";
+        icon.className = "fa-solid fa-lock-open";
+        text.innerText = "Màn Hình: Mở";
+        canvas.style.cursor = "grab";
+      }
+    }
+
+    /* =========================================================================
+       CANVAS PAN & ZOOM
+       ========================================================================= */
+    let isDragging = false, dragStart = { x: 0, y: 0 };
+    function setupCanvasInteractions() {
+      canvas.addEventListener('mousedown', e => { 
+        if (isScreenLocked) return;
+        isDragging = true; 
+        dragStart = { x: e.clientX - camera.x, y: e.clientY - camera.y }; 
+      });
+      canvas.addEventListener('mousemove', e => { 
+        if (isDragging && !isScreenLocked) { 
+          camera.targetX = e.clientX - dragStart.x; 
+          camera.targetY = e.clientY - dragStart.y; 
+        } 
+      });
+      window.addEventListener('mouseup', () => isDragging = false);
+      canvas.addEventListener('wheel', e => { 
+        if (isScreenLocked) return;
+        e.preventDefault(); 
+        camera.targetZoom = Math.max(0.4, Math.min(3.5, camera.targetZoom * (e.deltaY < 0 ? 1.15 : 0.85))); 
+      }, { passive: false });
+    }
+
+    /* =========================================================================
+       MAIN LOOP & DRAWING
+       ========================================================================= */
+    let lastTime = performance.now();
+    function gameLoop(now) {
+      const dt = (now - lastTime) / 1000;
+      lastTime = now;
+      camera.x += (camera.targetX - camera.x) * 0.1;
+      camera.y += (camera.targetY - camera.y) * 0.1;
+      camera.zoom += (camera.targetZoom - camera.zoom) * 0.1;
+
+      if (isPlaying) {
+        const steps = MISSION_MODES[currentMode].steps;
+        stepProgress += (dt * simSpeed) / (steps[currentStepIndex].duration / 100);
+        if (stepProgress >= 1.0) {
+          if (currentStepIndex < steps.length - 1) { currentStepIndex++; stepProgress = 0; } 
+          else stepProgress = 1.0;
+        }
+        updateStepUI();
+      }
+      render();
+      requestAnimationFrame(gameLoop);
+    }
+
+    function render() {
+      ctx.clearRect(0, 0, canvas.width, canvas.height);
+      ctx.save();
+      ctx.translate(canvas.width / 2 + camera.x, canvas.height / 2 + camera.y);
+      ctx.scale(camera.zoom, camera.zoom);
+
+      drawStars(); drawEarth(); drawMoon();
+
+      switch (currentMode) {
+        case 'da': renderDirectAscent(); break;
+        case 'eor': renderEarthOrbitRendezvous(); break;
+        case 'lsr': renderLunarSurfaceRendezvous(); break;
+        case 'lor': renderLunarOrbitRendezvous(); break;
+      }
+      ctx.restore();
+    }
+
+    function drawStars() {
+      ctx.save(); ctx.fillStyle = "#ffffff";
+      stars.forEach(s => {
+        ctx.globalAlpha = s.alpha * (0.6 + Math.sin(Date.now() * 0.002 + s.x) * 0.4);
+        ctx.beginPath(); ctx.arc(s.x, s.y, s.size, 0, Math.PI * 2); ctx.fill();
+      });
+      ctx.restore();
+    }
+
+    function drawEarth() {
+      ctx.save(); ctx.translate(EARTH.x, EARTH.y);
+      const glow = ctx.createRadialGradient(0, 0, EARTH.r * 0.8, 0, 0, EARTH.r * 1.35);
+      glow.addColorStop(0, "rgba(59, 130, 246, 0.4)"); glow.addColorStop(1, "rgba(0, 0, 0, 0)");
+      ctx.fillStyle = glow; ctx.beginPath(); ctx.arc(0, 0, EARTH.r * 1.35, 0, Math.PI * 2); ctx.fill();
+      const grad = ctx.createRadialGradient(-EARTH.r * 0.3, -EARTH.r * 0.3, 10, 0, 0, EARTH.r);
+      grad.addColorStop(0, "#38bdf8"); grad.addColorStop(0.5, "#1d4ed8"); grad.addColorStop(1, "#0f172a");
+      ctx.fillStyle = grad; ctx.beginPath(); ctx.arc(0, 0, EARTH.r, 0, Math.PI * 2); ctx.fill();
+      ctx.fillStyle = "rgba(34, 197, 94, 0.45)"; ctx.beginPath(); ctx.arc(-20, -30, 28, 0, Math.PI * 1.2); ctx.arc(30, 20, 32, 0, Math.PI * 1.5); ctx.fill();
+      ctx.fillStyle = "#94a3b8"; ctx.font = "11px Orbitron"; ctx.textAlign = "center"; ctx.fillText("TRÁI ĐẤT", 0, EARTH.r + 22);
+      ctx.restore();
+    }
+
+    function drawMoon() {
+      ctx.save(); ctx.translate(MOON.x, MOON.y);
+      const glow = ctx.createRadialGradient(0, 0, MOON.r * 0.9, 0, 0, MOON.r * 1.3);
+      glow.addColorStop(0, "rgba(226, 232, 240, 0.2)"); glow.addColorStop(1, "rgba(0, 0, 0, 0)");
+      ctx.fillStyle = glow; ctx.beginPath(); ctx.arc(0, 0, MOON.r * 1.3, 0, Math.PI * 2); ctx.fill();
+      const grad = ctx.createRadialGradient(-MOON.r * 0.3, -MOON.r * 0.3, 5, 0, 0, MOON.r);
+      grad.addColorStop(0, "#f1f5f9"); grad.addColorStop(1, "#334155");
+      ctx.fillStyle = grad; ctx.beginPath(); ctx.arc(0, 0, MOON.r, 0, Math.PI * 2); ctx.fill();
+      ctx.fillStyle = "rgba(51, 65, 85, 0.4)";
+      [{x:-12,y:-10,r:8}, {x:15,y:-18,r:6}, {x:8,y:12,r:10}, {x:-20,y:15,r:5}].forEach(c => {
+        ctx.beginPath(); ctx.arc(c.x, c.y, c.r, 0, Math.PI * 2); ctx.fill();
+      });
+      ctx.fillStyle = "#94a3b8"; ctx.font = "11px Orbitron"; ctx.textAlign = "center"; ctx.fillText("MẶT TRĂNG", 0, MOON.r + 22);
+      ctx.restore();
+    }
+
+    /* =========================================================================
+       VEHICLE ARTWORK & TEXTURES (DA, EOR, LSR, LOR)
+       ========================================================================= */
+
+    // Bản nâng cấp của siêu tên lửa NOVA (Direct Ascent)
+    // Tích hợp hệ thống vỏ tách rời trực quan
+    function drawNovaRocket(x, y, scale = 1, angle = 0, thrust = false, separation = 0) {
+      ctx.save(); ctx.translate(x, y); ctx.rotate(angle); ctx.scale(scale, scale);
+      
+      // Thân tàu chính (Main Body) - Khi tách vỏ, vỏ bị bỏ lại phía sau.
+      // Với hướng bay về Trái Đất (-Math.PI/2), +Y cục bộ là hướng lùi,
+      // vì vậy dịch theo +Y và lệch ngang để tạo cảm giác bị động lực đẩy xiên ra xa.
+      ctx.save();
+      if (separation > 0) {
+        // Phản lực khi tách: vỏ bị dội ngược về phía Mặt Trăng,
+        // kèm một lệch chéo nhẹ thay vì bay ngang theo đường thẳng.
+        ctx.translate(separation * 0.18, separation);
+      }
+      
+      // Lửa đẩy chính (Chỉ hiện khi chưa tách vỏ)
+      if (thrust && separation === 0) {
+        const flameGrad = ctx.createLinearGradient(0, 45, 0, 85);
+        flameGrad.addColorStop(0, "#f97316"); flameGrad.addColorStop(0.6, "#ef4444"); flameGrad.addColorStop(1, "transparent");
+        ctx.fillStyle = flameGrad; ctx.beginPath(); 
+        ctx.moveTo(-16, 45); ctx.lineTo(0, 45 + Math.random() * 40 + 20); ctx.lineTo(16, 45); ctx.fill();
+      }
+
+      // Cánh tản nhiệt / Cánh đuôi (Fins)
+      ctx.fillStyle = "#334155";
+      ctx.beginPath(); ctx.moveTo(-18, 25); ctx.lineTo(-28, 45); ctx.lineTo(-18, 45); ctx.fill();
+      ctx.beginPath(); ctx.moveTo(18, 25); ctx.lineTo(28, 45); ctx.lineTo(18, 45); ctx.fill();
+
+      // Vỏ chính (Hull)
+      const hullGrad = ctx.createLinearGradient(-18, 0, 18, 0);
+      hullGrad.addColorStop(0, "#94a3b8"); hullGrad.addColorStop(0.5, "#f8fafc"); hullGrad.addColorStop(1, "#64748b");
+      ctx.fillStyle = hullGrad; ctx.fillRect(-18, -25, 36, 70);
+      
+      // Các vạch kết cấu
+      ctx.fillStyle = "#1e293b";
+      ctx.fillRect(-18, -5, 36, 12);
+      ctx.fillRect(-18, 25, 36, 8);
+      ctx.fillStyle = "#cbd5e1"; // Vòng đệm kết nối với khoang
+      ctx.fillRect(-18, -25, 36, 4);
+
+      // Nhãn chữ NOVA
+      ctx.save();
+      if (angle === Math.PI/2 || angle === -Math.PI/2) {
+        ctx.rotate(angle === Math.PI/2 ? -Math.PI/2 : Math.PI/2);
+        ctx.fillStyle = "#ffffff"; ctx.font = "900 10px Orbitron"; ctx.textAlign = "center"; ctx.fillText("NOVA", 0, 4);
+      } else {
+        ctx.fillStyle = "#ffffff"; ctx.font = "900 10px Orbitron"; ctx.textAlign = "center"; ctx.fillText("NOVA", 0, 12);
+      }
+      ctx.restore();
+
+      ctx.restore(); // Kết thúc thân tàu
+
+      // Khoang đổ bộ / Chỉ huy (Mũi nhọn màu đỏ)
+      ctx.save();
+      // Lửa đẩy phụ khi mũi tàu đã tách vỏ
+      if (separation > 0 && thrust) {
+         ctx.fillStyle = "#f97316"; ctx.beginPath(); 
+         ctx.moveTo(-6, -25); ctx.lineTo(0, -25 + Math.random() * 15 + 8); ctx.lineTo(6, -25); ctx.fill();
+      }
+
+      // Vỏ khoang mũi (Cone)
+      ctx.fillStyle = "#dc2626"; // Màu đỏ để dễ nhận biết hướng mũi tàu
+      ctx.beginPath(); ctx.moveTo(-18, -25); ctx.lineTo(0, -65); ctx.lineTo(18, -25); ctx.fill();
+      
+      // Cửa sổ phi hành gia
+      ctx.fillStyle = "#0f172a"; ctx.beginPath(); ctx.arc(0, -40, 4.5, 0, Math.PI*2); ctx.fill();
+      ctx.strokeStyle = "#94a3b8"; ctx.lineWidth = 1; ctx.stroke();
+      
+      ctx.restore(); // Kết thúc mũi tàu
+      ctx.restore();
+    }
+
+    function drawEngineFlame(localY = 0, size = 1) {
+      const flicker = 0.75 + Math.random() * 0.45;
+      const len = 18 * size * flicker;
+      ctx.save();
+      const grad = ctx.createLinearGradient(0, localY, 0, localY + len);
+      grad.addColorStop(0, "#fbbf24");
+      grad.addColorStop(0.45, "#f97316");
+      grad.addColorStop(1, "rgba(239,68,68,0)");
+      ctx.fillStyle = grad;
+      ctx.beginPath();
+      ctx.moveTo(-5 * size, localY);
+      ctx.lineTo(0, localY + len);
+      ctx.lineTo(5 * size, localY);
+      ctx.closePath();
+      ctx.fill();
+      ctx.restore();
+    }
+
+    // Bản nâng cấp của module nhiên liệu EOR (Tanker)
+    function drawEORTanker(x, y, scale = 1, angle = 0, thrust = false) {
+      ctx.save(); ctx.translate(x, y); ctx.rotate(angle); ctx.scale(scale, scale);
+      if (thrust) drawEngineFlame(30, 1.15);
+
+      // Bồn chứa nhiên liệu hạng nặng
+      const tankGrad = ctx.createLinearGradient(-15, 0, 15, 0);
+      tankGrad.addColorStop(0, "#d97706"); tankGrad.addColorStop(0.5, "#fef08a"); tankGrad.addColorStop(1, "#b45309");
+      ctx.fillStyle = tankGrad; ctx.fillRect(-15, -20, 30, 44);
+
+      // Khung xương kim loại bao quanh
+      ctx.fillStyle = "rgba(0,0,0,0.25)";
+      ctx.fillRect(-15, -10, 30, 3);
+      ctx.fillRect(-15, 5, 30, 3);
+
+      // Động cơ
+      ctx.fillStyle = "#334155";
+      ctx.beginPath(); ctx.moveTo(-10, 24); ctx.lineTo(-14, 34); ctx.lineTo(14, 34); ctx.lineTo(10, 24); ctx.fill();
+
+      // Cổng ghép nối (Docking Adapter)
+      ctx.fillStyle = "#cbd5e1";
+      ctx.fillRect(-10, -24, 20, 4);
+      ctx.fillStyle = "#475569";
+      ctx.fillRect(-7, -27, 14, 3);
+
+      // Nhãn
+      ctx.save();
+      // Xoay nhãn tùy theo hướng bay
+      if (angle > 0 && angle < Math.PI) {
+         ctx.rotate(-Math.PI/2);
+         ctx.fillStyle = "#ffffff"; ctx.font = "900 8px Inter"; ctx.textAlign = "center"; ctx.fillText("FUEL", -2, 3);
+      } else {
+         ctx.rotate(Math.PI/2);
+         ctx.fillStyle = "#ffffff"; ctx.font = "900 8px Inter"; ctx.textAlign = "center"; ctx.fillText("FUEL", 2, 3);
+      }
+      ctx.restore();
+
+      ctx.restore();
+    }
+
+    function drawSaturnV(x, y, scale = 1, angle = 0, thrust = false) {
+      ctx.save(); ctx.translate(x, y); ctx.rotate(angle); ctx.scale(scale, scale);
+      if (thrust) { ctx.fillStyle = "#f97316"; ctx.beginPath(); ctx.moveTo(-6, 30); ctx.lineTo(0, 30 + Math.random()*20+10); ctx.lineTo(6, 30); ctx.fill(); }
+      ctx.fillStyle = "#f1f5f9"; ctx.fillRect(-8, -25, 16, 55);
+      ctx.fillStyle = "#0f172a"; ctx.fillRect(-8, -10, 16, 8); ctx.fillRect(-8, 12, 16, 6);
+      ctx.fillStyle = "#38bdf8"; ctx.beginPath(); ctx.moveTo(-8, -25); ctx.lineTo(0, -45); ctx.lineTo(8, -25); ctx.fill();
+      ctx.restore();
+    }
+
+    function drawCSM(x, y, scale = 1, angle = 0, thrust = false) {
+      ctx.save(); ctx.translate(x, y); ctx.rotate(angle); ctx.scale(scale, scale);
+      if (thrust) drawEngineFlame(16, 0.8);
+      ctx.fillStyle = "#cbd5e1"; ctx.strokeStyle = "#64748b"; ctx.lineWidth = 1;
+      ctx.fillRect(-7, -8, 14, 18); ctx.strokeRect(-7, -8, 14, 18);
+      ctx.fillStyle = "#94a3b8"; ctx.beginPath(); ctx.arc(-9, 4, 3, 0, Math.PI * 2); ctx.fill();
+      ctx.fillStyle = "#334155"; ctx.beginPath(); ctx.moveTo(-5, 10); ctx.lineTo(-7, 16); ctx.lineTo(7, 16); ctx.lineTo(5, 10); ctx.fill();
+      ctx.fillStyle = "#f8fafc"; ctx.strokeStyle = "#94a3b8"; ctx.beginPath(); ctx.moveTo(-7, -8); ctx.lineTo(0, -20); ctx.lineTo(7, -8); ctx.closePath(); ctx.fill(); ctx.stroke();
+      ctx.fillStyle = "#0284c7"; ctx.font = "bold 7px Inter"; ctx.textAlign = "center"; ctx.fillText("CSM", 0, 1);
+      ctx.restore();
+    }
+
+    function drawDescentStage(x, y, scale = 1, angle = 0) {
+      ctx.save(); ctx.translate(x, y); ctx.rotate(angle); ctx.scale(scale, scale);
+      ctx.fillStyle = "#eab308"; ctx.strokeStyle = "#ca8a04"; ctx.lineWidth = 1;
+      ctx.fillRect(-10, 0, 20, 10); ctx.strokeRect(-10, 0, 20, 10);
+      ctx.fillStyle = "#334155"; ctx.beginPath(); ctx.moveTo(-4, 10); ctx.lineTo(-6, 15); ctx.lineTo(6, 15); ctx.lineTo(4, 10); ctx.fill();
+      ctx.strokeStyle = "#cbd5e1"; ctx.lineWidth = 1.5;
+      ctx.beginPath(); ctx.moveTo(-8, 6); ctx.lineTo(-18, 18); ctx.stroke();
+      ctx.fillStyle = "#94a3b8"; ctx.beginPath(); ctx.arc(-18, 18, 3, 0, Math.PI * 2); ctx.fill();
+      ctx.beginPath(); ctx.moveTo(8, 6); ctx.lineTo(18, 18); ctx.stroke();
+      ctx.beginPath(); ctx.arc(18, 18, 3, 0, Math.PI * 2); ctx.fill();
+      ctx.restore();
+    }
+
+    function drawAscentStage(x, y, scale = 1, angle = 0, isDead = false, thrust = false) {
+      ctx.save(); ctx.translate(x, y); ctx.rotate(angle); ctx.scale(scale, scale);
+      if (thrust && !isDead) drawEngineFlame(3, 0.75);
+      ctx.fillStyle = isDead ? "#475569" : "#cbd5e1"; 
+      ctx.strokeStyle = isDead ? "#334155" : "#64748b"; 
+      ctx.lineWidth = 1;
+      ctx.beginPath();
+      ctx.moveTo(-8, -2); ctx.lineTo(-9, -12); ctx.lineTo(-5, -16); ctx.lineTo(5, -16); ctx.lineTo(9, -12); ctx.lineTo(8, -2); ctx.lineTo(-8, -2);
+      ctx.fill(); ctx.stroke();
+      ctx.fillStyle = isDead ? "#1e293b" : "#0284c7";
+      ctx.beginPath(); ctx.moveTo(-6, -13); ctx.lineTo(-2, -13); ctx.lineTo(-5, -9); ctx.fill();
+      ctx.beginPath(); ctx.moveTo(6, -13); ctx.lineTo(2, -13); ctx.lineTo(5, -9); ctx.fill();
+      ctx.fillStyle = "#f8fafc"; ctx.fillRect(-2, -19, 4, 3);
+      ctx.strokeStyle = "#e2e8f0"; ctx.lineWidth = 1; ctx.beginPath(); ctx.moveTo(0, -19); ctx.lineTo(0, -22); ctx.stroke();
+      ctx.fillStyle = "#475569"; ctx.fillRect(-11, -10, 3, 4); ctx.fillRect(8, -10, 3, 4);
+      ctx.fillStyle = "#1e293b"; ctx.beginPath(); ctx.moveTo(-3, -2); ctx.lineTo(-4, 3); ctx.lineTo(4, 3); ctx.lineTo(3, -2); ctx.fill();
+      ctx.restore();
+    }
+
+    function drawLM(x, y, scale = 1, angle = 0, separatedAscent = false, isDead = false, thrust = false) {
+      ctx.save(); ctx.translate(x, y); ctx.rotate(angle); ctx.scale(scale, scale);
+      if (!separatedAscent) drawDescentStage(0, 0, 1, 0); 
+      drawAscentStage(0, 0, 1, 0, isDead, thrust); 
+      ctx.restore();
+    }
+
+    function drawCargo(x, y, scale = 1, angle = 0, depleted = false, thrust = false) {
+      ctx.save(); ctx.translate(x, y); ctx.rotate(angle); ctx.scale(scale, scale);
+      if (thrust) drawEngineFlame(12, 0.95);
+      ctx.fillStyle = depleted ? "#475569" : "#059669"; ctx.strokeStyle = "#047857"; ctx.lineWidth = 1;
+      ctx.fillRect(-10, -10, 20, 20); ctx.strokeRect(-10, -10, 20, 20);
+      ctx.fillStyle = depleted ? "#64748b" : "#34d399"; ctx.beginPath(); ctx.arc(0, 0, 6, 0, Math.PI * 2); ctx.fill();
+      ctx.strokeStyle = "#94a3b8"; ctx.lineWidth = 1.5; ctx.beginPath();
+      ctx.moveTo(-10, 8); ctx.lineTo(-15, 15); ctx.moveTo(10, 8); ctx.lineTo(15, 15); ctx.stroke();
+      ctx.fillStyle = "#ffffff"; ctx.font = "bold 7px Inter"; ctx.textAlign = "center"; ctx.fillText("CARGO", 0, -12);
+      ctx.restore();
+    }
+
+    /* =========================================================================
+       ANIMATION LOGIC FOR ALL MODES
+       ========================================================================= */
+
+    function renderDirectAscent() {
+      ctx.save(); const p = stepProgress;
+      if (currentStepIndex === 0) {
+        // Cất cánh từ đỉnh Trái Đất đi lên (Góc 0)
+        drawNovaRocket(EARTH.x, EARTH.y - EARTH.r - p * 40, 0.8, 0, true, 0);
+      } else if (currentStepIndex === 1) {
+        if (p < 0.5) {
+          // Vòng quỹ đạo Trái Đất (mũi uốn cong theo quỹ đạo)
+          const a = -Math.PI/2 + (p/0.5)*Math.PI/2;
+          drawNovaRocket(EARTH.x + Math.cos(a)*130, EARTH.y + Math.sin(a)*130, 0.7, a + Math.PI/2, true, 0);
+        } else {
+          // Bay thẳng sang Mặt Trăng (mũi hướng phải)
+          const startX = EARTH.x + 130;
+          const endX = MOON.x - MOON.r - 20;
+          const orbitP = (p - 0.5) / 0.5;
+          drawNovaRocket(startX + orbitP * (endX - startX), EARTH.y, 0.7, Math.PI/2, true, 0);
+        }
+      } else if (currentStepIndex === 2) {
+        // Hạ cánh trực tiếp: Mũi tàu cắm thẳng xuống Mặt Trăng (Góc Math.PI/2)
+        const startX = MOON.x - MOON.r - 20;
+        const endX = MOON.x - MOON.r - 4; // Đáp ngay trên viền
+        drawNovaRocket(startX + p * (endX - startX), MOON.y, 0.7, Math.PI/2, false, 0);
+      } else if (currentStepIndex === 3) {
+        // Cất cánh toàn tàu: Mũi hướng về phía Trái Đất (Góc -Math.PI/2)
+        const startX = MOON.x - MOON.r - 4;
+        const endX = MOON.x - MOON.r - 72;
+        drawNovaRocket(startX + p * (endX - startX), MOON.y, 0.7, -Math.PI/2, true, 0);
+      } else {
+        // Hành trình trở về và Tách Vỏ (Separation)
+        const startX = MOON.x - MOON.r - 72;
+        const endX = EARTH.x + EARTH.r + 30;
+        const curX = startX + p * (endX - startX);
+        
+        if (p < 0.45) {
+          // Bay bình thường chưa tách
+          drawNovaRocket(curX, EARTH.y, 0.7, -Math.PI/2, false, 0);
+        } else {
+          // Diễn hoạt tách vỏ rời rạc (càng về sau separation càng lớn)
+          const sepP = (p - 0.45) / 0.55;
+          const separationDist = sepP * sepP * 120; // Phản lực tăng dần, dội vỏ ngược về phía Mặt Trăng
+          
+          drawNovaRocket(curX, EARTH.y, 0.7, -Math.PI/2, true, separationDist);
+          
+          if (sepP > 0.05) {
+            ctx.fillStyle = "#ef4444"; ctx.font = "bold 9px Inter"; ctx.textAlign = "center";
+            ctx.fillText("BỎ VỎ TÀU KHỔNG LỒ", curX, EARTH.y - 45);
+          }
+        }
+      }
+      ctx.restore();
+    }
+
+    function renderEarthOrbitRendezvous() {
+      ctx.save(); const p = stepProgress; const orbitR = EARTH.r + 45;
+      ctx.strokeStyle = "rgba(245, 158, 11, 0.4)"; ctx.setLineDash([4, 4]);
+      ctx.beginPath(); ctx.arc(EARTH.x, EARTH.y, orbitR, 0, Math.PI*2); ctx.stroke();
+
+      if (currentStepIndex === 0) {
+        const tankerAngle = 0 + p * Math.PI; 
+        const tR = EARTH.r + p * (orbitR - EARTH.r);
+        const curX = EARTH.x + Math.cos(tankerAngle) * tR;
+        const curY = EARTH.y + Math.sin(tankerAngle) * tR;
+        drawEORTanker(curX, curY, 0.9, tankerAngle + Math.PI/2, true);
+      } else if (currentStepIndex === 1) {
+        const tankerAngle = Math.PI + p * Math.PI;
+        const tx = EARTH.x + Math.cos(tankerAngle) * orbitR;
+        const ty = EARTH.y + Math.sin(tankerAngle) * orbitR;
+        
+        const crewAngle = Math.PI/2 + p * (Math.PI * 1.5);
+        const crewR = EARTH.r + p * (orbitR - EARTH.r);
+        const cx = EARTH.x + Math.cos(crewAngle) * crewR;
+        const cy = EARTH.y + Math.sin(crewAngle) * crewR;
+
+        drawEORTanker(tx, ty, 0.9, tankerAngle + Math.PI/2, true);
+        drawCSM(cx, cy, 0.9, crewAngle + Math.PI/2, true);
+        
+        if (p > 0.6) {
+          ctx.strokeStyle = "#38bdf8"; ctx.setLineDash([2, 2]);
+          ctx.beginPath(); ctx.moveTo(cx, cy); ctx.lineTo(tx, ty); ctx.stroke();
+        }
+        if (p > 0.95) {
+          ctx.fillStyle = "#10b981"; ctx.font = "bold 9px Inter"; ctx.fillText("ĐÃ GHÉP NỐI!", tx + 30, ty);
+        }
+      } else if (currentStepIndex === 2) {
+        const curX = EARTH.x + orbitR + p * (MOON.x - MOON.r - 20 - (EARTH.x + orbitR));
+        // Giữ nguyên 2 module đã tạo: Tanker + CSM cùng bay về Mặt Trăng.
+        ctx.save();
+        ctx.translate(curX, EARTH.y);
+        // Đầu tàu CSM hướng về Mặt Trăng; Tanker nằm phía sau, nối đầu-đuôi rõ ràng.
+        drawCSM(0, 0, 0.9, Math.PI / 2, true);
+        drawEORTanker(-24, 0, 0.9, Math.PI / 2, true);
+        ctx.strokeStyle = "rgba(56, 189, 248, 0.8)"; ctx.lineWidth = 2;
+        ctx.beginPath(); ctx.moveTo(-9, 0); ctx.lineTo(-15, 0); ctx.stroke();
+        ctx.restore();
+      } else if (currentStepIndex === 3) {
+        // Hạ cánh và cất cánh, vẫn giữ nguyên 2 texture Tanker + CSM kết nối.
+        const startX = MOON.x - MOON.r - 20;
+        const surfaceX = MOON.x - MOON.r - 4;
+        const orbitX = MOON.x - MOON.r - 72;
+
+        if (p < 0.5) {
+          const phaseP = p / 0.5;
+          const curX = startX + phaseP * (surfaceX - startX);
+          ctx.save();
+          ctx.translate(curX, MOON.y);
+          drawCSM(0, 0, 0.9, Math.PI / 2, true);
+          drawEORTanker(-24, 0, 0.9, Math.PI / 2, true);
+          ctx.strokeStyle = "rgba(56, 189, 248, 0.8)"; ctx.lineWidth = 2;
+          ctx.beginPath(); ctx.moveTo(-9, 0); ctx.lineTo(-15, 0); ctx.stroke();
+          ctx.restore();
+        } else {
+          const phaseP = (p - 0.5) / 0.5;
+          const curX = surfaceX + phaseP * (orbitX - surfaceX);
+          ctx.save();
+          ctx.translate(curX, MOON.y);
+          // Khi quay về Trái Đất, CSM ở đầu; Tanker nằm phía sau (bên phải).
+          drawCSM(0, 0, 0.9, -Math.PI / 2, true);
+          drawEORTanker(24, 0, 0.9, -Math.PI / 2, true);
+          ctx.strokeStyle = "rgba(56, 189, 248, 0.8)"; ctx.lineWidth = 2;
+          ctx.beginPath(); ctx.moveTo(9, 0); ctx.lineTo(15, 0); ctx.stroke();
+          ctx.restore();
+        }
+      } else {
+        // Trở về Trái Đất: vẫn giữ cả 2 texture cho tới đoạn cuối,
+        // sau đó Tanker/vỏ bị bỏ lại theo hướng chéo, CSM tiếp tục bay.
+        const startX = MOON.x - MOON.r - 72;
+        const endX = EARTH.x + EARTH.r + 20;
+        const curX = startX - p * (startX - endX);
+        const separationStart = 0.62;
+
+        if (p < separationStart) {
+          ctx.save();
+          ctx.translate(curX, EARTH.y);
+          // Giữ nguyên cấu hình đầu-đuôi cho đến tận đoạn cuối.
+          drawCSM(0, 0, 0.9, -Math.PI / 2, true);
+          drawEORTanker(24, 0, 0.9, -Math.PI / 2, true);
+          ctx.strokeStyle = "rgba(56, 189, 248, 0.8)"; ctx.lineWidth = 2;
+          ctx.beginPath(); ctx.moveTo(9, 0); ctx.lineTo(15, 0); ctx.stroke();
+          ctx.restore();
+        } else {
+          const sepP = (p - separationStart) / (1 - separationStart);
+          // Tanker bị bỏ lại phía sau CSM: lùi theo hướng ngược chuyển động
+          // và đồng thời lệch chéo để không lao thẳng về phía Trái Đất.
+          // Phản lực đẩy Tanker/vỏ ngược về phía Mặt Trăng, hơi lệch chéo.
+          const recoil = sepP * sepP;
+          const shellX = curX + recoil * 120;
+          const shellY = EARTH.y - recoil * 14;
+
+          drawCSM(curX, EARTH.y, 0.9, -Math.PI / 2, true);
+          drawEORTanker(shellX, shellY, 0.9, -Math.PI / 2);
+
+          if (sepP > 0.05) {
+            ctx.fillStyle = "#ef4444"; ctx.font = "bold 9px Inter"; ctx.textAlign = "center";
+            ctx.fillText("TÁCH VỎ TANKER", curX, EARTH.y - 45);
+          }
+        }
+      }
+      ctx.restore();
+    }
+
+    function renderLunarSurfaceRendezvous() {
+      ctx.save(); const p = stepProgress;
+      // Đặt hai tàu LSR ngay ngoài mép Mặt Trăng để thân tàu và đuôi lửa không chồng vào bề mặt.
+      const cargoX = MOON.x - MOON.r - 12; const cargoY = MOON.y - 18;
+      const crewX = MOON.x - MOON.r - 12; const crewY = MOON.y + 18;
+
+      if (currentStepIndex === 0) {
+        const startX = EARTH.x + EARTH.r + 20;
+        const curX = startX + p * (cargoX - startX);
+        const curY = EARTH.y + p * (cargoY - EARTH.y);
+        drawCargo(curX, curY, 0.9, Math.PI / 2, false, true);
+      } else if (currentStepIndex === 1) {
+        drawCargo(cargoX, cargoY, 0.9, Math.PI / 2, false);
+        const startX = EARTH.x + EARTH.r + 20;
+        const curX = startX + p * (crewX - startX);
+        const curY = EARTH.y + p * (crewY - EARTH.y);
+        // Tàu đổ bộ hướng mũi vào Mặt Trăng (Góc Math.PI/2)
+        drawLM(curX, curY, 0.9, Math.PI / 2, false, false, true);
+      } else if (currentStepIndex === 2) {
+        drawCargo(cargoX, cargoY, 0.9, Math.PI / 2, false);
+        drawLM(crewX, crewY, 0.9, Math.PI / 2, false);
+        
+        ctx.strokeStyle = "#38bdf8"; ctx.lineWidth = 3; ctx.beginPath();
+        ctx.moveTo(cargoX, cargoY + 10); ctx.lineTo(crewX, crewY - 10); ctx.stroke();
+        
+        for (let i = 0; i < 5; i++) {
+          const partP = (p * 3 + i / 5) % 1.0;
+          ctx.fillStyle = "#facc15"; ctx.beginPath();
+          ctx.arc(cargoX, (cargoY + 10) + partP * (crewY - 10 - (cargoY + 10)), 3, 0, Math.PI * 2); ctx.fill();
+        }
+        ctx.fillStyle = "#38bdf8"; ctx.font = "bold 10px Inter"; ctx.textAlign = "center";
+        ctx.fillText("NẠP NHIÊN LIỆU...", MOON.x - MOON.r - 45, MOON.y);
+      } else if (currentStepIndex === 3) {
+        drawCargo(cargoX, cargoY, 0.9, Math.PI / 2, true);
+        const targetX = MOON.x - MOON.r - 120;
+        const targetY = EARTH.y; 
+        const curX = crewX + p * (targetX - crewX);
+        const curY = crewY * (1 - p) + targetY * p;
+        // Xoay dần hướng về Trái Đất (Từ Phải sang Trái)
+        const angle = Math.PI / 2 - p * Math.PI;
+        drawLM(curX, curY, 0.9, angle, false, false, true);
+      } else { 
+        drawCargo(cargoX, cargoY, 0.9, Math.PI / 2, true);
+        const startX = MOON.x - MOON.r - 120;
+        const endX = EARTH.x + EARTH.r + 15;
+        const curX = startX - p * (startX - endX);
+        const curY = EARTH.y; 
+        // Mũi nhọn (Tàu lên) hướng về Trái Đất
+        drawLM(curX, curY, 0.9, -Math.PI / 2, false, false, true);
+      }
+      ctx.restore();
+    }
+
+    function renderLunarOrbitRendezvous() {
+      ctx.save(); const p = stepProgress; const lunarOrbitR = MOON.r + 35;
+      ctx.strokeStyle = "rgba(56, 189, 248, 0.4)"; ctx.setLineDash([4, 4]);
+
+      if (currentStepIndex === 0) {
+        drawSaturnV(EARTH.x, EARTH.y + EARTH.r - p * (EARTH.r + 35), 0.8, 0, true);
+      } else if (currentStepIndex === 1) {
+        ctx.beginPath(); ctx.arc(MOON.x, MOON.y, lunarOrbitR, 0, Math.PI * 2); ctx.stroke();
+        if (p < 0.5) {
+          const travelP = p / 0.5;
+          const startX = EARTH.x + EARTH.r + 35;
+          const endX = MOON.x - lunarOrbitR;
+          const curX = startX + travelP * (endX - startX);
+          ctx.save(); ctx.translate(curX, EARTH.y);
+          drawCSM(0, 0, 0.8, Math.PI / 2);
+          drawLM(18, 0, 0.8, Math.PI / 2, false);
+          ctx.restore();
+        } else {
+          const orbitP = (p - 0.5) / 0.5;
+          const csmAngle = Math.PI + orbitP * (Math.PI * 0.5);
+          const csmX = MOON.x + Math.cos(csmAngle) * lunarOrbitR;
+          const csmY = MOON.y + Math.sin(csmAngle) * lunarOrbitR;
+          drawCSM(csmX, csmY, 0.8, csmAngle + Math.PI / 2);
+
+          const lmStartX = MOON.x - lunarOrbitR;
+          const lmEndX = MOON.x - MOON.r + 6;
+          const lmX = lmStartX + orbitP * (lmEndX - lmStartX);
+          drawLM(lmX, MOON.y, 0.85, Math.PI / 2, false);
+        }
+      } else if (currentStepIndex === 2) {
+        ctx.beginPath(); ctx.arc(MOON.x, MOON.y, lunarOrbitR, 0, Math.PI * 2); ctx.stroke();
+        const landX = MOON.x - MOON.r + 6;
+        const landY = MOON.y;
+        drawDescentStage(landX, landY, 0.85, Math.PI / 2); 
+
+        const csmAngle = 1.5 * Math.PI + p * (1.5 * Math.PI);
+        const csmX = MOON.x + Math.cos(csmAngle) * lunarOrbitR;
+        const csmY = MOON.y + Math.sin(csmAngle) * lunarOrbitR;
+        drawCSM(csmX, csmY, 0.85, csmAngle + Math.PI / 2);
+
+        const lmX = landX + p * (csmX - landX);
+        const lmY = landY + p * (csmY - landY);
+        const lmRot = Math.PI / 2 - p * (Math.PI / 2);
+        drawLM(lmX, lmY, 0.85, lmRot, true);
+
+        if (p > 0.85) {
+          ctx.fillStyle = "#38bdf8"; ctx.font = "bold 9px Inter"; ctx.textAlign = "center";
+          ctx.fillText("ĐÃ GHÉP NỐI THÀNH CÔNG!", MOON.x, MOON.y - lunarOrbitR - 20);
+        }
+      } else if (currentStepIndex === 3) {
+        ctx.beginPath(); ctx.arc(MOON.x, MOON.y, lunarOrbitR, 0, Math.PI * 2); ctx.stroke();
+        drawDescentStage(MOON.x - MOON.r + 6, MOON.y, 0.85, Math.PI / 2);
+
+        const orbitStartX = MOON.x - lunarOrbitR;
+        const orbitStartY = MOON.y;
+        const sepStart = 0.18;
+        const sepEnd = 0.38;
+        const earthEntryX = EARTH.x + EARTH.r + 100;
+
+        if (p < sepStart) {
+          ctx.save();
+          ctx.translate(orbitStartX, orbitStartY);
+          drawCSM(0, 0, 0.85, -Math.PI / 2, false);
+          drawAscentStage(18, 0, 0.85, -Math.PI / 2, false);
+          ctx.restore();
+
+          ctx.fillStyle = "#38bdf8"; ctx.font = "bold 9px Inter"; ctx.textAlign = "center";
+          ctx.fillText("CSM + LM ĐANG KẾT NỐI", orbitStartX, orbitStartY - lunarOrbitR - 20);
+        } else if (p < sepEnd) {
+          const sepP = (p - sepStart) / (sepEnd - sepStart);
+          const csmX = orbitStartX - sepP * 32;
+          const csmY = orbitStartY + sepP * 5;
+          const lmX = orbitStartX + 18 + sepP * 62;
+          const lmY = orbitStartY + sepP * 28;
+
+          drawCSM(csmX, csmY, 0.85, -Math.PI / 2, false);
+          drawAscentStage(lmX, lmY, 0.85, -Math.PI / 2 + sepP * 0.25, true);
+
+          ctx.setLineDash([3, 3]);
+          ctx.strokeStyle = "rgba(239, 68, 68, 0.8)";
+          ctx.beginPath(); ctx.moveTo(csmX + 8, csmY); ctx.lineTo(lmX - 8, lmY); ctx.stroke();
+          ctx.setLineDash([4, 4]);
+
+          ctx.fillStyle = "#ef4444"; ctx.font = "bold 10px Inter"; ctx.textAlign = "center";
+          ctx.fillText("TÁCH LM Ở QUỸ ĐẠO MẶT TRĂNG", MOON.x, MOON.y - lunarOrbitR - 20);
+        } else {
+          const postSepP = (p - sepEnd) / (1 - sepEnd);
+          const lmX = orbitStartX + 80;
+          const lmY = orbitStartY + 30;
+          drawAscentStage(lmX, lmY, 0.85, -Math.PI / 2 + 0.2, true);
+
+          const csmStartX = orbitStartX - 32;
+          const csmStartY = orbitStartY + 5;
+          const curX = csmStartX + postSepP * (earthEntryX - csmStartX);
+          const curY = csmStartY * (1 - postSepP) + EARTH.y * postSepP;
+
+          drawCSM(curX, curY, 0.85, -Math.PI / 2, true);
+        }
+      } else {
+        drawDescentStage(MOON.x - MOON.r + 6, MOON.y, 0.85, Math.PI / 2);
+        const startX = EARTH.x + EARTH.r + 100;
+        const endX = EARTH.x + EARTH.r + 20;
+        const curX = startX - p * (startX - endX);
+        const curY = EARTH.y;
+
+        drawCSM(curX, curY, 0.85, -Math.PI / 2, false);
+
+        if (p > 0.3) {
+          ctx.strokeStyle = "#ef4444"; ctx.lineWidth = 1.5; ctx.beginPath();
+          ctx.arc(curX - 15, EARTH.y, 10, -Math.PI / 2, Math.PI / 2); ctx.stroke();
+          ctx.fillStyle = "#ef4444"; ctx.font = "bold 9px Inter"; ctx.textAlign = "center";
+          ctx.fillText("CSM TRIỂN KHAI DÙ", curX, EARTH.y - 25);
+        }
+      }
+      ctx.restore();
+    }
+
+    window.onload = init;
+  </script>
+</body>
+</html>
